@@ -1,0 +1,140 @@
+---
+title: "New Zealand Export Dashboard (2014-2019)"
+author: "Varun Khanna"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    social: menu
+    source_code: embed
+---
+
+Imports
+======================================================================= 
+
+```{r setup, include=FALSE}
+#Loading Libraries & setting theme of the layout
+LoadLibraries <- function(){
+  library(highcharter)
+  library(dplyr)
+  library(viridisLite)
+  library(forecast)
+  library(treemap)
+  library(flexdashboard)
+    
+}
+
+LoadLibraries()
+thm <- 
+  hc_theme(
+    colors = c("#1a6ecc", "#434348", "#90ed7d"),
+    chart = list(
+      backgroundColor = "transparent",
+      style = list(fontFamily = "Source Sans Pro")
+    ),
+    xAxis = list(
+      gridLineWidth = 1
+    )
+  )
+
+#Loading in data
+df <- read.csv("trade_data.csv")
+
+#exports of goods only
+df.exports <- df[df$type == "imports" & df$product_type =="good",]
+#changing some factoring
+levels(df.exports$country)[levels(df.exports$country)=="China, People's Republic of"] <- "China"
+levels(df.exports$country)[levels(df.exports$country)=="Korea, Republic of"] <- "Korea"
+```
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### Annual Exports
+
+```{r}
+
+
+df.exports%>%
+  group_by(year)%>%
+  summarise(value = sum(value))%>%
+  arrange(desc(value))%>%
+  top_n(20)%>%
+  hchart(type = "column", hcaes(x =year,y = value))%>%
+  hc_yAxis(title = list(text = "Value in Billions"))
+
+
+```
+
+
+
+
+### Exports on the world map
+```{r}
+df.test <-df.exports%>%
+  group_by(country)%>%
+  summarise(
+    value = sum(value))
+#levels(df.test$country)[levels(df.test$country)=="China, People's Republic of"] <- "China"
+data(worldgeojson, package = "highcharter")
+
+#mapping
+highchart(type = "map") %>% 
+  hc_add_series_map(map = worldgeojson, df =  df.test, value = "value", joinBy = c("name","country")) %>% 
+  hc_colorAxis(stops = color_stops()) %>% 
+  hc_tooltip(useHTML = TRUE, headerFormat = "",
+             pointFormat = "NZ has exported ${point.value} worth of goods to {point.name} ")
+
+```
+
+
+
+
+Column {.tabset data-width=500}
+-----------------------------------------------------------------------
+
+### Export by Products
+
+
+```{r, fig.keep='none'}
+
+
+
+tree.map <- treemap(df.exports, index ="product_description",
+                          vSize = "value", vColor = "value",
+                          type = "value", palette = rev(viridis(6)))
+
+highchart() %>% 
+  hc_add_series_treemap(tree.map, allowDrillToNode = TRUE,
+                        layoutAlgorithm = "squarified") %>% 
+  hc_add_theme(thm)
+
+
+
+```
+
+### Export by Country
+
+```{r}
+
+# tree.map <- treemap(df.exports, index ="country",
+#                           vSize = "value", vColor = "value",
+#                           type = "value", palette = rev(viridis(6)))
+# 
+# highchart() %>% 
+#   hc_add_series_treemap(tree.map, allowDrillToNode = TRUE,
+#                         layoutAlgorithm = "squarified") %>% 
+#   hc_add_theme(thm)
+
+
+df.exports%>%
+  group_by(country)%>%
+  summarise(value = sum(value))%>%
+  arrange(desc(value))%>%
+  top_n(20)%>%
+  hchart(type = "bar", hcaes(x = country,y = value))%>%
+  hc_yAxis(title = list(text = "Value in Billions"))
+
+
+```
+geom_point
+=======================================================================
